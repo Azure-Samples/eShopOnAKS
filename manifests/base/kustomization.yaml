@@ -1,0 +1,37 @@
+resources:
+- configmap-app.yaml
+- persistentvolumeclaim-app.yaml
+- secretproviderclass.yaml
+- serviceaccount.yaml
+  
+patches:
+- patch: |-
+    - op: replace
+      path: "/metadata/name"
+      value: <YOUR_SERVICE_ACCOUNT_NAME>
+  target:
+    kind: ServiceAccount
+- patch: |-
+    - op: replace
+      path: "/metadata/annotations/azure.workload.identity~1client-id"
+      value: <YOUR_MANAGED_IDENTITY_CLIENT_ID>
+  target:
+    kind: ServiceAccount
+- patch: |-
+    - op: replace
+      path: "/spec/parameters/clientID"
+      value: <YOUR_MANAGED_IDENTITY_CLIENT_ID>
+  target:
+    kind: SecretProviderClass
+- patch: |-
+    - op: replace
+      path: "/spec/parameters/keyvaultName"
+      value: <YOUR_KEY_VAULT_NAME>
+  target:
+    kind: SecretProviderClass
+- patch: |-
+    - op: replace
+      path: "/spec/parameters/tenantId"
+      value: <YOUR_TENANT_ID>
+  target:
+    kind: SecretProviderClass

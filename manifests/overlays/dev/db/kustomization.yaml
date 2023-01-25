@@ -1,0 +1,16 @@
+bases:
+- ../../../base
+
+resources:
+- persistentvolumeclaim-db.yaml
+- configmap-db.yaml
+- deployment-db.yaml
+- service-db.yaml
+  
+patches:
+- patch: |-
+    - op: replace
+      path: "/spec/template/spec/serviceAccountName"
+      value: <YOUR_SERVICE_ACCOUNT_NAME>
+  target:
+    kind: Deployment

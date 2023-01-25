@@ -13,6 +13,8 @@ on:
         required: true
       AZURE_SUBSCRIPTION_ID:
         required: true
+      AZURE_USER_OBJECT_ID:
+        required: true
     outputs:
       containerRegistryName:
         description: Container Registry Name
@@ -26,6 +28,15 @@ on:
       aksName:
         description: Azure Kubernetes Service Cluster Name
         value: ${{ jobs.deploy.outputs.aksName }}
+      serviceAccount:
+        description: Kubernetes Service Account Name
+        value: ${{ jobs.deploy.outputs.serviceAccount }}
+      managedIdentityClientId:
+        description: Azure Workload Identity Client ID
+        value: ${{ jobs.deploy.outputs.managedIdentityClientId }}
+      akvName:
+        description: Azure Key Vault Name
+        value: ${{ jobs.deploy.outputs.akvName }}
 
 permissions:
   id-token: write
@@ -51,6 +62,7 @@ jobs:
         template: ./deploy/main.bicep
         parameters: >
           resourceGroup=${{ inputs.resourceGroupName }}
+          userObjectId=${{ secrets.AZURE_USER_OBJECT_ID }}
         deploymentMode: Validate
 
   deploy:
@@ -61,6 +73,9 @@ jobs:
       containerRegistryUrl: ${{ steps.deploy.outputs.acr_login_server_url }}
       resourceGroupName: ${{ steps.deploy.outputs.resource_group_name }}
       aksName: ${{ steps.deploy.outputs.aks_name }}
+      serviceAccount: ${{ steps.deploy.outputs.service_account }}
+      managedIdentityClientId: ${{ steps.deploy.outputs.managed_identity_client_id }}
+      akvName: ${{ steps.deploy.outputs.akv_name }}
     steps:
     - uses: actions/checkout@v2
     - uses: azure/login@v1
@@ -80,3 +95,4 @@ jobs:
         template: ./deploy/main.bicep
         parameters: >
           resourceGroup=${{ inputs.resourceGroupName }}
+          userObjectId=${{ secrets.AZURE_USER_OBJECT_ID }}

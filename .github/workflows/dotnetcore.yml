@@ -34,6 +34,7 @@ jobs:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_USER_OBJECT_ID: ${{ secrets.AZURE_USER_OBJECT_ID }}
 
   publish_container_image:
     needs: [deploy_aks]
@@ -55,6 +56,9 @@ jobs:
       containerRegistryUrl: ${{ needs.deploy_aks.outputs.containerRegistryUrl }}
       aksName: ${{ needs.deploy_aks.outputs.aksName }}
       githubSha: ${{ github.sha }}
+      serviceAccount: ${{ needs.deploy_aks.outputs.serviceAccount }}
+      managedIdentityClientId: ${{ needs.deploy_aks.outputs.managedIdentityClientId }}
+      akvName: ${{ needs.deploy_aks.outputs.akvName }}
     secrets:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}

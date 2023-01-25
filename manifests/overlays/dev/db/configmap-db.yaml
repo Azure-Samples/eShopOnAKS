@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mssql-settings
+data:
+  MSSQL_PID: Developer
+  ACCEPT_EULA: "Y"

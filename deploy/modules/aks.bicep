@@ -3,6 +3,13 @@ param clusterName string = 'aks1'
 param nodeCount int = 1
 param vmSize string = 'standard_d2s_v3'
 param kubernetesVersion string = '1.24.6'
+param keyVaultSku string = 'standard'
+param userObjectId string
+param serviceAccountName string = 'eshop-serviceaccount'
+param serviceAccountNamespace string = 'default'
+
+// concatenate unique strings with an ampersand to make something random yet deterministic
+var mssqlPassword = '${uniqueString(subscription().id)}&${uniqueString(resourceGroup().id)}'
 
 var rand = substring(uniqueString(resourceGroup().id), 0, 6)
 
@@ -11,7 +18,7 @@ resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-
   location: location
 }
 
-resource aks 'Microsoft.ContainerService/managedClusters@2021-05-01' = {
+resource aks 'Microsoft.ContainerService/managedClusters@2022-09-02-preview' = {
   name: clusterName
   location: location
   identity: {
@@ -32,6 +39,23 @@ resource aks 'Microsoft.ContainerService/managedClusters@2021-05-01' = {
         mode: 'System'
       }
     ]
+    oidcIssuerProfile: {
+      enabled: true
+    }
+    securityProfile: {
+      workloadIdentity: {
+        enabled: true
+      }
+    }
+    addonProfiles: {
+      azureKeyvaultSecretsProvider: {
+        config: {
+          enableSecretRotation: 'true'
+          rotationPollInterval: '2m'
+        }
+        enabled: true
+      }
+    }
   }
 }
 
@@ -54,7 +78,6 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
     name: 'Premium_LRS'
   }
 }
-
 
 // via: https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/bicep-functions-resource#subscriptionresourceid-example
 var roleDefinitionId = {
@@ -108,6 +131,103 @@ resource roleAssignmentDeploymentContributor 'Microsoft.Authorization/roleAssign
   ]
 }
 
+resource vault 'Microsoft.KeyVault/vaults@2022-07-01' = {
+  name: 'akv${rand}'
+  location: location
+  properties: {
+    accessPolicies: [
+      {
+        objectId: userObjectId
+        permissions: {
+          certificates: [
+            'all'
+          ]
+          keys: [
+            'all'
+          ]
+          secrets: [
+            'all'
+          ]
+          storage: [
+            'all'
+          ]
+        }
+        tenantId: tenant().tenantId
+      }
+    ]
+    sku: {
+      family: 'A'
+      name: keyVaultSku
+    }
+    tenantId: tenant().tenantId
+  }
+}
+
+resource secret1 'Microsoft.KeyVault/vaults/secrets@2022-07-01' = {
+  name: 'mssql-password'
+  parent: vault
+  properties: {
+    contentType: 'string'
+    value: mssqlPassword
+  }
+}
+
+resource secret2 'Microsoft.KeyVault/vaults/secrets@2022-07-01' = {
+  name: 'mssql-connection-catalog'
+  parent: vault
+  properties: {
+    contentType: 'string'
+    value: 'Server=db;Database=Microsoft.eShopOnWeb.CatalogDb;User Id=sa;Password=${mssqlPassword};TrustServerCertificate=True;'
+  }
+}
+
+resource secret3 'Microsoft.KeyVault/vaults/secrets@2022-07-01' = {
+  name: 'mssql-connection-identity'
+  parent: vault
+  properties: {
+    contentType: 'string'
+    value: 'Server=db;Database=Microsoft.eShopOnWeb.Identity;User Id=sa;Password=${mssqlPassword};TrustServerCertificate=True;'
+  }
+}
+
+resource aksWorkloadIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2022-01-31-preview' = {
+  name: 'aks-workload-identity'
+  location: location
+}
+
+resource aksVaultAccessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2022-07-01' = {
+  name: 'add'
+  parent: vault
+  properties: {
+    accessPolicies: [
+      {
+        objectId: aksWorkloadIdentity.properties.principalId
+        permissions: {
+          secrets: [
+            'get'
+          ]
+        }
+        tenantId: aksWorkloadIdentity.properties.tenantId
+      }
+    ]
+  }
+}
+
+resource aksFederatedCredential 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2022-01-31-preview' = {
+  name: 'string'
+  parent: aksWorkloadIdentity
+  properties: {
+    audiences: [
+      'api://AzureADTokenExchange'
+    ]
+    issuer: aks.properties.oidcIssuerProfile.issuerURL
+    subject: 'system:serviceaccount:${serviceAccountNamespace}:${serviceAccountName}'
+  }
+}
+
 output acr_login_server_url string = '${containerRegistry.name}.azurecr.io'
 output acr_name string = containerRegistry.name
 output aks_name string = aks.name
+output akv_name string = vault.name
+output service_account string = serviceAccountName
+output managed_identity_client_id string = aksWorkloadIdentity.properties.clientId

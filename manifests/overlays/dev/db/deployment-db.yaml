@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  labels:
+    app: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      securityContext:
+        fsGroup: 10001
+      serviceAccountName: ${SERVICE_ACCOUNT_NAME}
+      containers:
+        - name: db
+          image: mcr.microsoft.com/mssql/server:2019-latest
+          ports:
+            - containerPort: 1433
+          envFrom:
+            - configMapRef:
+                name: mssql-settings
+          env:
+            - name: MSSQL_SA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: eshop-secrets
+                  key: mssql-password
+          resources: {}
+          volumeMounts:
+            - name: mssqldb
+              mountPath: /var/opt/mssql
+            - name: eshop-secrets
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+      volumes:
+        - name: mssqldb
+          persistentVolumeClaim:
+            claimName: mssql-data
+        - name: eshop-secrets
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: eshop-azure-keyvault

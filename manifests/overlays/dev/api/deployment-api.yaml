@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels:
+    app: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      serviceAccount: ${SERVICE_ACCOUNT_NAME}
+      containers:
+        - name: api
+          image: notavalidregistry.azurecr.io/api:v0.1.0
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: aspnet-settings
+          env:
+            - name: ConnectionStrings__CatalogConnection
+              valueFrom:
+                secretKeyRef:
+                  name: eshop-secrets
+                  key: mssql-connection-catalog
+            - name: ConnectionStrings__IdentityConnection
+              valueFrom:
+                secretKeyRef:
+                  name: eshop-secrets
+                  key: mssql-connection-identity
+          resources: {}
+          volumeMounts:
+            - name: aspnet
+              mountPath: ~/.aspnet/https:/root/.aspnet/https:ro
+            - name: eshop-secrets
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+      volumes:
+        - name: aspnet
+          persistentVolumeClaim:
+            claimName: aspnet-data
+        - name: eshop-secrets
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+                secretProviderClass: eshop-azure-keyvault

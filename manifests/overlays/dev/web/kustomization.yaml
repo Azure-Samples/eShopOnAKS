@@ -1,0 +1,20 @@
+bases:
+- ../../../base
+
+resources:
+- deployment-web.yaml
+- service-web.yaml
+
+# Change the image name and version
+images:
+- name: notavalidregistry.azurecr.io/web:v0.1.0
+  newName: <YOUR_ACR_SERVER>/web
+  newTag: <YOUR_IMAGE_TAG>
+  
+patches:
+- patch: |-
+    - op: replace
+      path: "/spec/template/spec/serviceAccountName"
+      value: <YOUR_SERVICE_ACCOUNT_NAME>
+  target:
+    kind: Deployment

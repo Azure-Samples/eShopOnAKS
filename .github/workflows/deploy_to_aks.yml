@@ -15,6 +15,15 @@ on:
       githubSha:
         required: true
         type: string
+      serviceAccount:
+        required: true
+        type: string
+      managedIdentityClientId:
+        required: true
+        type: string
+      akvName:
+        required: true
+        type: string
     secrets:
       AZURE_CLIENT_ID:
         required: true
@@ -30,7 +39,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps:  
+    steps:
       - uses: actions/checkout@v2
       - uses: azure/login@v1
         name: Sign in to Azure
@@ -43,12 +52,16 @@ jobs:
           az aks get-credentials --resource-group ${{ inputs.resourceGroupName }} --name ${{ inputs.aksName }}
       - name: replace_placeholders_with_current_run
         run: |
-          sed -i "s/<YOUR_ACR_SERVER>/${{ inputs.containerRegistryUrl }}/g" ./manifests/kustomization.yaml
-          sed -i "s/<YOUR_IMAGE_TAG>/${{ inputs.githubSha }}/g" ./manifests/kustomization.yaml
+          find . -name kustomization.yaml -exec sed -i -e "s/<YOUR_ACR_SERVER>/${{ inputs.containerRegistryUrl }}/g" \
+            -e "s/<YOUR_IMAGE_TAG>/${{ inputs.githubSha }}/g" \
+            -e "s/<YOUR_SERVICE_ACCOUNT_NAME>/${{ inputs.serviceAccount }}/g" \
+            -e "s/<YOUR_MANAGED_IDENTITY_CLIENT_ID>/${{ inputs.managedIdentityClientId }}/g" \
+            -e "s/<YOUR_KEY_VAULT_NAME>/${{ inputs.akvName }}/g" \
+            -e "s/<YOUR_TENANT_ID>/${{ secrets.AZURE_TENANT_ID }}/g" {} \;
+        working-directory: ./manifests
       - name: Apply Kubernetes Configuration
         run: |
-          kubectl apply -f ./manifests/deployment-db.yaml \
-                        -f ./manifests/service-db.yaml
-          kubectl apply -k ./manifests
-          kubectl apply -f ./manifests/service-api.yaml \
-                        -f ./manifests/service-web.yaml
+          kubectl apply -k ./manifests/overlays/dev/db
+          sleep 60
+          kubectl apply -k ./manifests/overlays/dev/api
+          kubectl apply -k ./manifests/overlays/dev/web
