@@ -37,6 +37,26 @@
                 "/consoleloggerparameters:NoSummary"
             ],
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "bridge-to-kubernetes.resource",
+            "type": "bridge-to-kubernetes.resource",
+            "resource": "web",
+            "resourceType": "service",
+            "ports": [
+                5001
+            ],
+            "targetCluster": "aks1",
+            "targetNamespace": "default",
+            "useKubernetesServiceEnvironmentVariables": false
+        },
+        {
+            "label": "bridge-to-kubernetes.compound",
+            "dependsOn": [
+                "bridge-to-kubernetes.resource",
+                "build"
+            ],
+            "dependsOrder": "sequence"
         }
     ]
 }
