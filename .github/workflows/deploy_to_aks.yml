@@ -1,0 +1,54 @@
+name: deploy_to_aks
+
+on:
+  workflow_call:
+    inputs:
+      aksName:
+        required: true
+        type: string
+      resourceGroupName:
+        required: true
+        type: string
+      containerRegistryUrl:
+        required: true
+        type: string
+      githubSha:
+        required: true
+        type: string
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:  
+      - uses: actions/checkout@v2
+      - uses: azure/login@v1
+        name: Sign in to Azure
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Get AKS Credentials
+        run: |
+          az aks get-credentials --resource-group ${{ inputs.resourceGroupName }} --name ${{ inputs.aksName }}
+      - name: replace_placeholders_with_current_run
+        run: |
+          sed -i "s/<YOUR_ACR_SERVER>/${{ inputs.containerRegistryUrl }}/g" ./manifests/kustomization.yaml
+          sed -i "s/<YOUR_IMAGE_TAG>/${{ inputs.githubSha }}/g" ./manifests/kustomization.yaml
+      - name: Apply Kubernetes Configuration
+        run: |
+          kubectl apply -f ./manifests/deployment-db.yaml \
+                        -f ./manifests/service-db.yaml
+          kubectl apply -k ./manifests
+          kubectl apply -f ./manifests/service-api.yaml \
+                        -f ./manifests/service-web.yaml

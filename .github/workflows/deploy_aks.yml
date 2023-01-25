@@ -1,0 +1,82 @@
+name: deploy
+
+on:
+  workflow_call:
+    inputs:
+      resourceGroupName:
+        required: true
+        type: string
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+    outputs:
+      containerRegistryName:
+        description: Container Registry Name
+        value: ${{ jobs.deploy.outputs.containerRegistryName }}
+      containerRegistryUrl:
+        description: Container Registry Login Url
+        value: ${{ jobs.deploy.outputs.containerRegistryUrl }}
+      resourceGroupName:
+        description: Resource Group Name
+        value: ${{ jobs.deploy.outputs.resourceGroupName }}
+      aksName:
+        description: Azure Kubernetes Service Cluster Name
+        value: ${{ jobs.deploy.outputs.aksName }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: azure/login@v1
+      name: Sign in to Azure
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    - uses: azure/arm-deploy@v1
+      name: Run preflight validation
+      with:
+        deploymentName: ${{ github.run_number }}
+        scope: subscription
+        region: eastus
+        template: ./deploy/main.bicep
+        parameters: >
+          resourceGroup=${{ inputs.resourceGroupName }}
+        deploymentMode: Validate
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      containerRegistryName: ${{ steps.deploy.outputs.acr_name }}
+      containerRegistryUrl: ${{ steps.deploy.outputs.acr_login_server_url }}
+      resourceGroupName: ${{ steps.deploy.outputs.resource_group_name }}
+      aksName: ${{ steps.deploy.outputs.aks_name }}
+    steps:
+    - uses: actions/checkout@v2
+    - uses: azure/login@v1
+      name: Sign in to Azure
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    - uses: azure/arm-deploy@v1
+      id: deploy
+      name: Deploy Bicep file
+      with:
+        failOnStdErr: false
+        deploymentName: ${{ github.run_number }}
+        scope: subscription
+        region: eastus
+        template: ./deploy/main.bicep
+        parameters: >
+          resourceGroup=${{ inputs.resourceGroupName }}

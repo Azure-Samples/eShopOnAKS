@@ -1,0 +1,15 @@
+resources:
+- deployment-api.yaml
+- deployment-web.yaml
+
+# Change the image name and version
+images:
+- name: notavalidregistry.azurecr.io/api:v0.1.0
+  newName: <YOUR_ACR_SERVER>/api
+  newTag: <YOUR_IMAGE_TAG>
+- name: notavalidregistry.azurecr.io/web:v0.1.0
+  newName: <YOUR_ACR_SERVER>/web
+  newTag: <YOUR_IMAGE_TAG>
+
+
+# kubectl appy -f manifests/deployment-api.yaml -k 

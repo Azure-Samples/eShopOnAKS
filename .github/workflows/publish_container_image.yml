@@ -1,0 +1,56 @@
+name: Publish Container Images
+
+on: 
+  workflow_call:
+    inputs:
+      containerRegistryName:
+        required: true
+        type: string
+      containerRegistryUrl:
+        required: true
+        type: string
+      githubSha:
+        required: true
+        type: string
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish_container_image:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: docker build
+      run: |
+        docker build . -f src/Web/Dockerfile -t ${{ inputs.containerRegistryUrl }}/web:${{ inputs.githubSha }}
+        docker build . -f src/PublicApi/Dockerfile -t ${{ inputs.containerRegistryUrl }}/api:${{ inputs.githubSha}}
+    - name: scan web container image
+      uses: Azure/container-scan@v0
+      with:
+        image-name: ${{ inputs.containerRegistryUrl }}/web:${{ inputs.githubSha}}
+    - name: scan api container image
+      uses: Azure/container-scan@v0
+      with:
+        image-name: ${{ inputs.containerRegistryUrl }}/web:${{ inputs.githubSha}}
+    - uses: azure/login@v1
+      name: Sign in to Azure
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    - name: acr login 
+      run: az acr login --name ${{ inputs.containerRegistryName  }}
+    - name: docker push
+      run: |
+        docker push ${{ inputs.containerRegistryUrl }}/web:${{ inputs.githubSha}}
+        docker push ${{ inputs.containerRegistryUrl }}/api:${{ inputs.githubSha}}

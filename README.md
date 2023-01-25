@@ -111,6 +111,33 @@ You should be able to make requests to localhost:5106 for the Web project, and l
 
 You can also run the applications by using the instructions located in their `Dockerfile` file in the root of each project. Again, run these commands from the root of the solution (where the .sln file is located).
 
+## Running the sample using Azure Kubernetes Service (AKS)
+
+```bash
+az group create -n rg-eshop -l westus3
+ACR_NAME=$(az acr create -n acreshop$RANDOM -g rg-eshop --sku Basic --query name -o tsv)
+az aks create -n aks-eshop -g rg-eshop --attach-acr $ACR_NAME
+az aks get-credentials -n aks-eshop -g rg-eshop
+
+# Build the PublicApi container
+az acr build -r $ACR_NAME -t $ACR_NAME.azurecr.io/api:v0.1.0 -f ./src/PublicApi/Dockerfile .
+
+# Build the Web container
+az acr build -r $ACR_NAME -t $ACR_NAME.azurecr.io/web:v0.1.0 -f ./src/Web/Dockerfile .
+
+# Update the ACR name in the deployment manifests
+sed -i -e "s/<YOUR_ACR_NAME>/${ACR_NAME}/g" ./manifests/*
+
+# Deploy the MSSQL database to AKS
+kubectl apply -f ./manifests/deployment-db.yaml -f ./manifests/service-db.yaml
+
+# Deploy the API to AKS
+kubectl apply -f ./manifests/deployment-api.yaml -f ./manifests/service-api.yaml
+
+# Deploy the Web to AKS
+kubectl apply -f ./manifests/deployment-web.yaml -f ./manifests/service-web.yaml
+```
+
 ## Community Extensions
 
 We have some great contributions from the community, and while these aren't maintained by Microsoft we still want to highlight them.
