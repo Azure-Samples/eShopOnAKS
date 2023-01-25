@@ -43,6 +43,9 @@ on:
       dnsZoneName:
         description: Azure DNS Zone Name
         value: ${{ jobs.deploy.outputs.dnsZoneName }}
+      certName:
+        description: Azure Key Vault Certificate Name
+        value: ${{ jobs.deploy.outputs.certName }}
 
 permissions:
   id-token: write
@@ -83,6 +86,7 @@ jobs:
       managedIdentityClientId: ${{ steps.deploy.outputs.managed_identity_client_id }}
       akvName: ${{ steps.deploy.outputs.akv_name }}
       dnsZoneName: ${{ steps.deploy.outputs.dns_zone_name }}
+      certName: ${{ steps.deploy.outputs.cert_name }}
     steps:
     - uses: actions/checkout@v2
     - uses: azure/login@v1

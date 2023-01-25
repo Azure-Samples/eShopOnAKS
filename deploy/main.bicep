@@ -27,6 +27,17 @@ module aks './modules/aks.bicep' = {
   }
 }
 
+module signCert './modules/signCert.bicep' = {
+  name: '${resourceGroup}-signCert'
+  scope: rg
+  params: {
+    location: rg.location 
+    VaultName: aks.outputs.akv_name
+    CertName: 'contoso'
+    SubjectName: 'CN=contoso.com'
+  }
+}
+
 output acr_login_server_url string = aks.outputs.acr_login_server_url
 output acr_name string = aks.outputs.acr_name
 output aks_name string = aks.outputs.aks_name
@@ -35,3 +46,4 @@ output akv_name string = aks.outputs.akv_name
 output service_account string = aks.outputs.service_account
 output managed_identity_client_id string = aks.outputs.managed_identity_client_id
 output dns_zone_name string = dns.outputs.dns_zone_name
+output cert_name string = signCert.outputs.CertName

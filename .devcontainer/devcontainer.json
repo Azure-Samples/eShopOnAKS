@@ -57,6 +57,11 @@
 	"remoteEnv": {
 		// "ASPNETCORE_Kestrel__Certificates__Default__Password": "SecurePwdGoesHere",
 		// "ASPNETCORE_Kestrel__Certificates__Default__Path": "/home/vscode/.aspnet/https/aspnetapp.pfx",
+	},
+	"features": {
+		"ghcr.io/devcontainers/features/azure-cli:1": {},
+		"ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {},
+		"ghcr.io/rchaganti/vsc-devcontainer-features/azurebicep:1": {}
 	}
 
 	// Use 'postCreateCommand' to run commands after the container is created.

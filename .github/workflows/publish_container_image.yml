@@ -15,6 +15,12 @@ on:
       dnsZoneName:
         required: true
         type: string
+      akvName:
+        required: true
+        type: string
+      certName:
+        required: true
+        type: string
     secrets:
       AZURE_CLIENT_ID:
         required: true
@@ -61,3 +67,37 @@ jobs:
       run: |
         docker push ${{ inputs.containerRegistryUrl }}/web:${{ inputs.githubSha}}
         docker push ${{ inputs.containerRegistryUrl }}/api:${{ inputs.githubSha}}
+    - name: Get Signing Cert Key ID & Notation Credentials
+      id: kid
+      run: |
+        keyID=$(az keyvault certificate show \
+          --vault-name ${{ inputs.akvName }} --name ${{ inputs.certName }} \
+          --query "kid" --only-show-errors --output tsv)
+
+        tokenPassword=$(az acr token create \
+          --name "${{ inputs.certName }}" \
+          --registry ${{ inputs.containerRegistryName }} \
+          --scope-map _repositories_admin \
+          --query 'credentials.passwords[0].value' \
+          --only-show-errors \
+          --output tsv)
+
+        echo "SIGN_CERT_KEY_ID=${keyID}" >> $GITHUB_OUTPUT
+        echo "NOTATION_USERNAME=${{ inputs.certName }}" >> $GITHUB_OUTPUT
+        echo "NOTATION_PASSWORD=${tokenPassword}" >> $GITHUB_OUTPUT
+    - name: Setup Notation with azure-kv plugin
+      uses: Duffney/setup-notation@v0.12.0
+      with:
+        version: 1.0.0-rc.1
+        key_name: ${{ inputs.certName }}
+        certificate_key_id: ${{ steps.kid.outputs.SIGN_CERT_KEY_ID }}
+        plugin_name: notation-azure-kv
+        plugin_version: 0.5.0-rc.1
+    - name: Sign Container Images
+      run: |
+        notation sign ${{ inputs.containerRegistryUrl }}/web:${{ inputs.githubSha}} \
+          --username ${{ steps.kid.outputs.NOTATION_USERNAME}} \
+          --password ${{ steps.kid.outputs.NOTATION_PASSWORD}}
+        notation sign ${{ inputs.containerRegistryUrl }}/api:${{ inputs.githubSha}} \
+          --username ${{ steps.kid.outputs.NOTATION_USERNAME}} \
+          --password ${{ steps.kid.outputs.NOTATION_PASSWORD}}

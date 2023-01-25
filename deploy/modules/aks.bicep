@@ -3,7 +3,7 @@ param clusterName string = 'aks1'
 param nodeCount int = 1
 param vmSize string = 'standard_d2s_v3'
 param kubernetesVersion string = '1.24.6'
-param keyVaultSku string = 'standard'
+param keyVaultSku string = 'premium'
 param userObjectId string
 param serviceAccountName string = 'eshop-serviceaccount'
 param serviceAccountNamespace string = 'default'
@@ -70,7 +70,7 @@ resource containerRegistry 'Microsoft.ContainerRegistry/registries@2019-05-01' =
   name: 'acr${rand}'
   location: location
   sku: {
-    name: 'Standard'
+    name: 'Premium'
   }
   properties: {
     adminUserEnabled: true

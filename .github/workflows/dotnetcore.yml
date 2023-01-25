@@ -44,6 +44,8 @@ jobs:
       containerRegistryUrl: ${{ needs.deploy_aks.outputs.containerRegistryUrl }}
       githubSha: ${{ github.sha }}
       dnsZoneName: ${{ needs.deploy_aks.outputs.dnsZoneName }}
+      certName: ${{ needs.deploy_aks.outputs.certName }}
+      akvName: ${{ needs.deploy_aks.outputs.akvName }}
     secrets:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
