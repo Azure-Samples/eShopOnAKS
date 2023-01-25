@@ -4,6 +4,7 @@ bases:
 resources:
 - deployment-web.yaml
 - service-web.yaml
+- ingress-web.yaml
 
 # Change the image name and version
 images:
@@ -18,3 +19,21 @@ patches:
       value: <YOUR_SERVICE_ACCOUNT_NAME>
   target:
     kind: Deployment
+- patch: |-
+    - op: replace
+      path: "/metadata/annotations/kubernetes.azure.com~1tls-cert-keyvault-uri"
+      value: <YOUR_TLS_CERT_URI>
+  target:
+    kind: Ingress
+- patch: |-
+    - op: replace
+      path: "/spec/rules/0/host"
+      value: <YOUR_DNS_NAME>
+  target:
+    kind: Ingress
+- patch: |-
+    - op: replace
+      path: "/spec/tls/0/hosts/0"
+      value: <YOUR_DNS_NAME>
+  target:
+    kind: Ingress

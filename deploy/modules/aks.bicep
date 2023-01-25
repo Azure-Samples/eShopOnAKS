@@ -7,6 +7,7 @@ param keyVaultSku string = 'standard'
 param userObjectId string
 param serviceAccountName string = 'eshop-serviceaccount'
 param serviceAccountNamespace string = 'default'
+param dnsZoneResourceId string
 
 // concatenate unique strings with an ampersand to make something random yet deterministic
 var mssqlPassword = '${uniqueString(subscription().id)}&${uniqueString(resourceGroup().id)}'
@@ -53,6 +54,12 @@ resource aks 'Microsoft.ContainerService/managedClusters@2022-09-02-preview' = {
           enableSecretRotation: 'true'
           rotationPollInterval: '2m'
         }
+        enabled: true
+      }
+    }
+    ingressProfile: {
+      webAppRouting: {
+        dnsZoneResourceId: dnsZoneResourceId
         enabled: true
       }
     }

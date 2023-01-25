@@ -37,6 +37,12 @@ on:
       akvName:
         description: Azure Key Vault Name
         value: ${{ jobs.deploy.outputs.akvName }}
+      tlsCertificateUri:
+        description: TLS Certificate URI
+        value: ${{ jobs.configure_web_app_routing.outputs.tlsCertificateUri }}
+      dnsZoneName:
+        description: Azure DNS Zone Name
+        value: ${{ jobs.deploy.outputs.dnsZoneName }}
 
 permissions:
   id-token: write
@@ -76,6 +82,7 @@ jobs:
       serviceAccount: ${{ steps.deploy.outputs.service_account }}
       managedIdentityClientId: ${{ steps.deploy.outputs.managed_identity_client_id }}
       akvName: ${{ steps.deploy.outputs.akv_name }}
+      dnsZoneName: ${{ steps.deploy.outputs.dns_zone_name }}
     steps:
     - uses: actions/checkout@v2
     - uses: azure/login@v1
@@ -96,3 +103,63 @@ jobs:
         parameters: >
           resourceGroup=${{ inputs.resourceGroupName }}
           userObjectId=${{ secrets.AZURE_USER_OBJECT_ID }}
+
+  configure_web_app_routing:
+    needs: deploy
+    runs-on: ubuntu-latest
+    outputs:
+      tlsCertificateUri: ${{ steps.tls.outputs.tls_certificate_uri }}
+    steps:
+    - uses: actions/checkout@v2
+    - uses: azure/login@v1
+      name: Sign in to Azure
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    - name: Generate self-signed certificate
+      id: tls
+      run: |
+        openssl req -new -x509 -nodes -out web-tls.crt -keyout web-tls.key -subj "/CN=${{ needs.deploy.outputs.dnsZoneName }}" -addext "subjectAltName=DNS:${{ needs.deploy.outputs.dnsZoneName }}"
+        openssl pkcs12 -export -in web-tls.crt -inkey web-tls.key -out web-tls.pfx -password pass:
+
+        WEB_TLS_CERT_ID=$(az keyvault certificate import \
+          --vault-name ${{ needs.deploy.outputs.akvName }} \
+          --name web-tls \
+          --file web-tls.pfx \
+          --query id \
+          --output tsv)
+        
+        echo "tls_certificate_uri=${WEB_TLS_CERT_ID}" >> $GITHUB_OUTPUT
+
+        rm web-tls.*
+    - name: Grant permissions to web_app_routing managed identity
+      run: |
+        NODE_RESOURCE_GROUP=$(az aks show \
+          --name ${{ needs.deploy.outputs.aksName }} \
+          --resource-group ${{ needs.deploy.outputs.resourceGroupName }} \
+          --query nodeResourceGroup \
+          --output tsv)
+
+        MANAGED_IDENTTIY_OBJECT_ID=$(az resource show \
+          --name webapprouting-${{ needs.deploy.outputs.aksName }} \
+          --resource-group $NODE_RESOURCE_GROUP \
+          --resource-type Microsoft.ManagedIdentity/userAssignedIdentities \
+          --query properties.principalId \
+          --output tsv)
+        
+        az keyvault set-policy \
+          --name ${{ needs.deploy.outputs.akvName }} \
+          --object-id $MANAGED_IDENTTIY_OBJECT_ID \
+          --secret-permissions get \
+          --certificate-permissions get
+
+        DNS_ZONE_ID=$(az network dns zone show \
+          -n ${{ needs.deploy.outputs.dnsZoneName }} \
+          -g ${{ needs.deploy.outputs.resourceGroupName }} \
+          --query id -o tsv)
+
+        az role assignment create \
+          --role "DNS Zone Contributor" \
+          --assignee $MANAGED_IDENTTIY_OBJECT_ID \
+          --scope $DNS_ZONE_ID

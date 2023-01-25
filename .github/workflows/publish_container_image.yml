@@ -12,6 +12,9 @@ on:
       githubSha:
         required: true
         type: string
+      dnsZoneName:
+        required: true
+        type: string
     secrets:
       AZURE_CLIENT_ID:
         required: true
@@ -30,6 +33,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Update BlazorAdmin apiBase URL
+      run: |
+        find . -name "appsettings*.json" -exec sed -i -e "s/localhost:5099/${{ inputs.dnsZoneName }}/g" \
+            -e "s/localhost:44315/${{ inputs.dnsZoneName }}/g" {} \;
     - name: docker build
       run: |
         docker build . -f src/Web/Dockerfile -t ${{ inputs.containerRegistryUrl }}/web:${{ inputs.githubSha }}

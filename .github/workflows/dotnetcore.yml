@@ -43,6 +43,7 @@ jobs:
       containerRegistryName: ${{ needs.deploy_aks.outputs.containerRegistryName }}
       containerRegistryUrl: ${{ needs.deploy_aks.outputs.containerRegistryUrl }}
       githubSha: ${{ github.sha }}
+      dnsZoneName: ${{ needs.deploy_aks.outputs.dnsZoneName }}
     secrets:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -59,6 +60,8 @@ jobs:
       serviceAccount: ${{ needs.deploy_aks.outputs.serviceAccount }}
       managedIdentityClientId: ${{ needs.deploy_aks.outputs.managedIdentityClientId }}
       akvName: ${{ needs.deploy_aks.outputs.akvName }}
+      tlsCertificateUri: ${{ needs.deploy_aks.outputs.tlsCertificateUri }}
+      dnsZoneName: ${{ needs.deploy_aks.outputs.dnsZoneName }}
     secrets:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}

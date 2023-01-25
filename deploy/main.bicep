@@ -9,12 +9,17 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   location: location
 }
 
+module dns './modules/dns.bicep' = {
+  name: '${resourceGroup}-dns'
+  scope: rg
+}
 module aks './modules/aks.bicep' = {
   name: '${resourceGroup}-aks'
   scope: rg
   params: {
     location: location
     userObjectId: userObjectId
+    dnsZoneResourceId: dns.outputs.dns_zone_id
     // clusterName:
     // nodeCount:
     // vmSize: 
@@ -29,3 +34,4 @@ output resource_group_name string = rg.name
 output akv_name string = aks.outputs.akv_name
 output service_account string = aks.outputs.service_account
 output managed_identity_client_id string = aks.outputs.managed_identity_client_id
+output dns_zone_name string = dns.outputs.dns_zone_name
