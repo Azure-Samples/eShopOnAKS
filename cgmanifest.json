@@ -1,0 +1,15 @@
+{
+    "$schema": "https://json.schemastore.org/component-detection-manifest.json",
+    "version": 1,
+    "registrations": [
+        {
+            "component": {
+                "type": "git",
+                "git": {
+                    "repositoryUrl": "https://github.com/dotnet-architecture/eShopOnWeb",
+                    "commitHash": "c5e7fd33488cb0cd136eba86b4c158a8abaa40b1"
+                }
+            }
+        }
+    ]
+}
