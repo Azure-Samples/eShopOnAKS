@@ -1,0 +1,7 @@
+resources:
+- deployment-db.yaml
+- deployment-api.yaml
+- deployment-web.yaml
+- service-db.yaml
+- service-api.yaml
+- service-web.yaml
