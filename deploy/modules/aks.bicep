@@ -3,7 +3,7 @@ param clusterName string = 'aks1'
 param nodeCount int = 1
 param vmSize string = 'standard_d2s_v3'
 param kubernetesVersion string = '1.24.6'
-param keyVaultSku string = 'premium'
+param keyVaultSku string = 'standard'
 param userObjectId string
 param serviceAccountName string = 'eshop-serviceaccount'
 param serviceAccountNamespace string = 'default'
