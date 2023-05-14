@@ -1,0 +1,204 @@
+@using Microsoft.Extensions.Configuration
+@inject IConfiguration Configuration
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+<section class="col-lg-1 col-xs-12">
+    <div class="esh-chat-image">
+        <img src="~/images/chat.png" onclick="toggleChatDialog()" />
+    </div>
+</section>
+
+<div id="chat">
+    <div id="chat-dialog">
+        <div class="chat-header">
+            <span>{{ welcomeMessage }}</span>
+            <button class="close-button" onclick="toggleChatDialog()">x</button>
+        </div>
+        <div class="chat-messages">
+            <div v-for="message in chatHistory" :class="message.type">
+                {{ message.text }}
+            </div>
+        </div>
+        <div class="chat-input">
+            <input
+                type="text"
+                v-model="message"
+                @Html.Raw("@keydown.enter")="sendMessage"
+                placeholder="Type a message"
+            />
+            <input type="submit" value="Send" @Html.Raw("@click")="sendMessage" />
+        </div>
+    </div>
+</div>
+
+<div id="overlay" class="hidden"></div>
+
+<script>
+    const app = Vue.createApp({
+    data() {
+        return {
+            welcomeMessage: "eShopBot 1.0",
+            message: "",
+            messageData: { text: "", type: "user"},
+            chatHistory: [
+                {
+                    text: "Hi, I'm a chatbot built with Vue.js, .NET, and Semantic Kernel SDK. I'm a work in progress, but you can try me out!",
+                    type: "bot",
+                },
+                {
+                    text: 'I can answer simple questions like "What kind of shirts do you sell" or "What\'s your best sellers?"',
+                    type: "bot",
+                },
+            ]
+        }
+    },
+    methods: {
+        sendMessage() {
+            this.chatHistory.push({ text: this.message, type: "user" });
+            userMessage = this.message;
+            this.message = "";
+
+            // Send message to bot
+            fetch("@Configuration.GetSection("baseUrls")["chatBase"]", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ text: userMessage }),
+            })
+            .then((response) => response.json())
+            .then((response) => {
+                this.chatHistory.push({ text: response.replace("eShopBot:", ""), type: "bot" });
+            })
+            .catch((error) => {
+                console.error("Error:", error);
+                this.chatHistory.push({ text: "Sorry, something went wrong. Please try again later.", type: "bot" });
+            });
+        },
+    },
+    }).mount('#chat')
+
+    function toggleChatDialog() {
+        var chatDialog = document.getElementById("chat-dialog");
+        chatDialog.classList.toggle("visible");
+    }
+</script>
+
+<style>
+    .esh-chat-image {
+        height: 36px;
+        width: 36px;
+        margin-top: .5rem; 
+        cursor: pointer;
+    }
+
+    .esh-chat-image img {
+        height: 36px;
+    }
+
+    #chat-dialog {
+        display: none;
+    }
+
+    #chat-dialog.visible {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.8);
+        z-index: 999;
+    }
+
+    .chat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem;
+        background-color: #eee;
+        border-bottom: 1px solid #ccc;
+    }
+
+    .close-button {
+        border: none;
+        background-color: transparent;
+        font-size: 1.2rem;
+        cursor: pointer;
+    }
+
+    .chat-input {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem;
+        background-color: #eee;
+        border-top: 1px solid #ccc;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+    }
+
+    .chat-input input[type="text"] {
+        flex-grow: 1;
+        padding: 0.5rem;
+        margin-right: 0.5rem;
+        border: none;
+    }
+
+    .chat-input input[type="submit"] {
+        border: none;
+        background-color: #0084ff;
+        color: #fff;
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+        cursor: pointer;
+    }
+
+    #overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 998;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    .chat-messages {
+        padding: 0.5rem;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .bot {
+        background-color: #42b983;
+        color: #fff;
+        align-self: flex-start;
+        padding: 0.5rem;
+        margin: 0.5rem;
+        border-radius: 0.25rem;
+        max-width: 90%;
+        justify-content: left;
+    }
+
+    .user {
+        background-color: #373366;
+        color: #fff;
+        align-self: flex-end;
+        padding: 0.5rem;
+        margin: 0.5rem;
+        border-radius: 0.25rem;
+        max-width: 90%;
+        justify-content: right;
+    }
+</style>

@@ -1,0 +1,10 @@
+### 
+GET http://localhost:5185
+
+### 
+POST http://localhost:5185/chat
+Content-Type: application/json
+
+{
+  "text": "Do you have any coffee mugs?"
+}

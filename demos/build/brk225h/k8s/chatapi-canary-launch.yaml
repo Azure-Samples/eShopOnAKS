@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatapi
+  labels:
+    app: chatapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chatapi
+  template:
+    metadata:
+      labels:
+        app: chatapi
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    spec:
+      containers:
+        - name: chatapi
+          image: chatapi:v1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            failureThreshold: 3
+            initialDelaySeconds: 1
+            timeoutSeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 1
+            timeoutSeconds: 15
+            periodSeconds: 5
+          env:
+            - name: AzureOpenAISettings__Endpoint
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_ENDPOINT
+            - name: AzureOpenAISettings__Key
+              valueFrom:
+                secretKeyRef:
+                  name: eshop-secrets
+                  key: AOAI_KEY
+            - name: AzureOpenAISettings__ChatCompletionModel__Alias
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_CHATCOMPLETION_MODEL_ALIAS
+            - name: AzureOpenAISettings__ChatCompletionModel__DeploymentName
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_CHATCOMPLETION_MODEL_DEPLOYMENT
+            - name: AzureOpenAISettings__EmbeddingGenerationModel__Alias
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_EMBEDDING_MODEL_ALIAS
+            - name: AzureOpenAISettings__EmbeddingGenerationModel__DeploymentName
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_EMBEDDING_MODEL_DEPLOYMENT
+            - name: AzureOpenAISettings__TextCompletionModel__Alias
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_TEXTCOMPLETION_MODEL_ALIAS
+            - name: AzureOpenAISettings__TextCompletionModel__DeploymentName
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_TEXTCOMPLETION_MODEL_DEPLOYMENT
+          resources:
+            requests:
+              cpu: 5m
+              memory: 128Mi
+            limits:
+              cpu: 10m
+              memory: 256Mi
+---
+apiVersion: flagger.app/v1beta1
+kind: Canary
+metadata:
+  name: chatapi
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: chatapi
+  progressDeadlineSeconds: 60
+  service:
+    port: 80
+    targetPort: 80
+    portDiscovery: true
+    hosts:
+      - "*"
+    gateways:
+      - eshop-ingressgateway-external
+    match:
+      - uri:
+          prefix: /chat
+    rewrite:
+      uri: /
+  analysis:
+    interval: 1m
+    threshold: 10
+    maxWeight: 20
+    stepWeight: 10
+    metrics:
+      - name: request-success-rate
+        thresholdRange:
+          min: 99
+        interval: 1m
+      - name: request-duration
+        thresholdRange:
+          max: 500
+        interval: 30s
+      - name: error-rate
+        thresholdRange:
+          max: 10
+        interval: 30s
+    webhooks:
+      - name: acceptance-test
+        type: pre-rollout
+        url: http://flagger-loadtester.eshop/
+        timeout: 60s
+        metadata:
+          type: bash
+          cmd: "curl -s http://chatapi-canary.eshop"
+      - name: load-test
+        url: http://flagger-loadtester.eshop/
+        timeout: 5s
+        metadata:
+          cmd: "hey -z 1m -q 10 -c 2 http://chatapi-canary.eshop"

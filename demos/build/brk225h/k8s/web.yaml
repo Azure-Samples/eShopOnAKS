@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    app: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: web:v1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 3
+            successThreshold: 1
+            timeoutSeconds: 60
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /health
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 3
+            successThreshold: 1
+            timeoutSeconds: 60
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://+:80
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Development
+            - name: ConnectionStrings__CatalogConnection
+              valueFrom:
+                secretKeyRef:
+                  name: eshop-secrets
+                  key: SQL_CONNECTION_CATALOG
+            - name: ConnectionStrings__IdentityConnection
+              valueFrom:
+                secretKeyRef:
+                  name: eshop-secrets
+                  key: SQL_CONNECTION_IDENTITY
+            - name: ConnectionStrings__AppConfigConnection
+              valueFrom:
+                secretKeyRef:
+                  name: eshop-secrets
+                  key: APP_CONFIG_CONNECTION
+            - name: baseUrls__webBase
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: WEB_URL
+            - name: baseUrls__apiBase
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: API_URL
+            - name: baseUrls__chatBase
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: CHAT_URL
+          resources:
+            requests:
+              cpu: 40m
+              memory: 128Mi
+            limits:
+              cpu: 150m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector:
+    app: web
+  ports:
+    - protocol: TCP
+      port: 80
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: web
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - eshop-ingressgateway-external
+  http:
+    - route:
+        - destination:
+            host: web
+            port:
+              number: 80

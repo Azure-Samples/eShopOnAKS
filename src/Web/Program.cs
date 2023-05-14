@@ -16,6 +16,7 @@ using Microsoft.eShopWeb.Web;
 using Microsoft.eShopWeb.Web.Configuration;
 using Microsoft.eShopWeb.Web.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.FeatureManagement;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +41,20 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 
 builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 builder.Configuration.AddEnvironmentVariables();
+
+// Add Azure App Configuration for Feature Flags
+builder.Configuration.AddAzureAppConfiguration(options => 
+{
+    options.Connect(builder.Configuration.GetConnectionString("AppConfigConnection"));
+    options.UseFeatureFlags(featureFlagOptions =>
+    {
+        featureFlagOptions.CacheExpirationInterval = TimeSpan.FromSeconds(10);
+    });
+});
+
+builder.Services.AddAzureAppConfiguration();
+builder.Services.AddFeatureManagement();
+
 builder.Services.AddCoreServices(builder.Configuration);
 builder.Services.AddWebServices(builder.Configuration);
 
@@ -161,6 +176,9 @@ else
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
+
+// Use Azure App Configuration middleware for dynamic configuration refresh.
+app.UseAzureAppConfiguration();
 
 app.UseHttpsRedirection();
 app.UseBlazorFrameworkFiles();

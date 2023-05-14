@@ -1,0 +1,39 @@
+version: "3.4"
+services:
+  eshopwebmvc:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__CatalogConnection=Server=sqlserver,1433;Integrated Security=true;Initial Catalog=Microsoft.eShopOnWeb.CatalogDb;User Id=sa;Password=@someThingComplicated1234;Trusted_Connection=false;TrustServerCertificate=True;
+      - ConnectionStrings__IdentityConnection=Server=sqlserver,1433;Integrated Security=true;Initial Catalog=Microsoft.eShopOnWeb.Identity;User Id=sa;Password=@someThingComplicated1234;Trusted_Connection=false;TrustServerCertificate=True;
+      - ConnectionStrings__AppConfigConnection=<YOUR_CONNECTION_STRING>
+      - baseUrls__chatBase=http://localhost:5185/chat
+    ports:
+      - "5106:80"
+    volumes:
+      - ~/.aspnet/https:/root/.aspnet/https:ro
+      - ~/.microsoft/usersecrets:/root/.microsoft/usersecrets:ro
+  eshoppublicapi:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__CatalogConnection=Server=sqlserver,1433;Integrated Security=true;Initial Catalog=Microsoft.eShopOnWeb.CatalogDb;User Id=sa;Password=@someThingComplicated1234;Trusted_Connection=false;TrustServerCertificate=True;
+      - ConnectionStrings__IdentityConnection=Server=sqlserver,1433;Integrated Security=true;Initial Catalog=Microsoft.eShopOnWeb.Identity;User Id=sa;Password=@someThingComplicated1234;Trusted_Connection=false;TrustServerCertificate=True;
+    ports:
+      - "5200:80"
+    volumes:
+      - ~/.aspnet/https:/root/.aspnet/https:ro
+      - ~/.microsoft/usersecrets:/root/.microsoft/usersecrets:ro
+  eshopchatapi:
+    environment:
+      - AzureOpenAISettings__Endpoint=<YOUR_AZURE_OPEN_AI_ENDPOINT>
+      - AzureOpenAISettings__Key=<YOUR_AZURE_OPEN_AI_KEY>
+      - AzureOpenAISettings__EmbeddingGenerationModel__Alias=ada-azure
+      - AzureOpenAISettings__EmbeddingGenerationModel__DeploymentName=text-embedding-ada-002
+      - AzureOpenAISettings__TextCompletionModel__Alias=davinci-azure
+      - AzureOpenAISettings__TextCompletionModel__DeploymentName=text-davinci-003
+    ports:
+      - "5185:80"
+    volumes:
+      - ~/.aspnet/https:/root/.aspnet/https:ro
+      - ~/.microsoft/usersecrets:/root/.microsoft/usersecrets:ro

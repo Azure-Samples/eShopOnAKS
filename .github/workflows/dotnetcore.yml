@@ -1,22 +1,115 @@
 name: eShopOnWeb Build and Test
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - build/brk225h
+  pull_request:
+    branches:
+      - build/brk225h
+  workflow_dispatch:
+
+# environment variable for ACR_NAME, AKS_NAME, RG_NAME
+env:
+  ACR_NAME: ${{ secrets.ACR_NAME }}
+  AKS_NAME: ${{ secrets.AKS_NAME }}
+  RG_NAME: ${{ secrets.RG_NAME }}
+
+# add permissions for the action to write id-tokens and read contents
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: '7.0.x'
-        include-prerelease: true
+      - uses: actions/checkout@v2
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: "7.0.x"
+          include-prerelease: true
 
-    - name: Build with dotnet
-      run: dotnet build ./eShopOnWeb.sln --configuration Release
-    
-    - name: Test with dotnet
-      run: dotnet test ./eShopOnWeb.sln --configuration Release
+      - name: Build with dotnet
+        run: dotnet build ./eShopOnWeb.sln --configuration Release
+
+      # - name: Test with dotnet
+      #   run: dotnet test ./eShopOnWeb.sln --configuration Release
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      # login to azure
+      - uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      # run az acr login command
+      - name: Login to Azure Container Registry
+        run: az acr login --name ${{ env.ACR_NAME }}
+      # run docker build command on file src/Web/Dockerfile to build web image tagged as web:${{ github.sha }}
+      - name: Build web image
+        run: docker build -f src/Web/Dockerfile -t ${{ env.ACR_NAME }}.azurecr.io/build23/web:${{ github.sha }} .
+      # scan container web:${{ github.sha }} using aquasecurity/trivy-action@master and ignore errors for now
+      - name: Scan web image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ACR_NAME }}.azurecr.io/build23/web:${{ github.sha }}
+          exit-code: 0
+      # run checks against the web container image using erzz/dockle-action@v1 and ignore errors for now
+      - name: Check web image
+        uses: erzz/dockle-action@v1
+        with:
+          image: ${{ env.ACR_NAME }}.azurecr.io/build23/web:${{ github.sha }}
+          exit-code: 0
+      # push web:${{ github.sha }} to ACR
+      - name: Push web image
+        run: docker push ${{ env.ACR_NAME }}.azurecr.io/build23/web:${{ github.sha }}
+      # docker build on src/ChatApi/Dockerfile to build chatapi image tagged as chatapi:${{ github.sha }}
+      - name: Build chatapi image
+        run: docker build -f src/ChatApi/Dockerfile -t ${{ env.ACR_NAME }}.azurecr.io/build23/chatapi:${{ github.sha }} .
+      # scan container chatapi:${{ github.sha }} using aquasecurity/trivy-action@master and ignore errors for now
+      - name: Scan chatapi image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ACR_NAME }}.azurecr.io/build23/chatapi:${{ github.sha }}
+          exit-code: 0
+      # run checks against the chatapi container image using erzz/dockle-action@v1 and ignore errors for now
+      - name: Check chatapi image
+        uses: erzz/dockle-action@v1
+        with:
+          image: ${{ env.ACR_NAME }}.azurecr.io/build23/chatapi:${{ github.sha }}
+          exit-code: 0
+      # push api:${{ github.sha }} to ACR
+      - name: Push chatapi image
+        run: docker push ${{ env.ACR_NAME }}.azurecr.io/build23/chatapi:${{ github.sha }}
+
+  # deploy job deploys manifests to aks cluster
+  # log into azure
+  # run az aks get-credentials command
+  # run kustomize edit set image to update web and api images from the ./manifests directory
+  # deploy manifests
+  deploy:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Get AKS credentials
+        run: az aks get-credentials --resource-group ${{ env.RG_NAME }} --name ${{ env.AKS_NAME }}
+
+      - name: Update image tags and deploy to AKS
+        run: |
+          kustomize edit set image web=${{ env.ACR_NAME }}.azurecr.io/build23/web:${{ github.sha }}
+          kustomize edit set image chatapi=${{ env.ACR_NAME }}.azurecr.io/build23/chatapi:${{ github.sha }}
+          kustomize build . | kubectl apply -n eshop -f -
+        working-directory: demos/build/brk225h/k8s

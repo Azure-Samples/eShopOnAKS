@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatapi-v1.1
+  labels:
+    app: chatapi
+    version: v1.1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chatapi
+      version: v1.1
+  template:
+    metadata:
+      labels:
+        app: chatapi
+        version: v1.1
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    spec:
+      containers:
+        - name: chatapi
+          image: chatapi:v1.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            failureThreshold: 3
+            initialDelaySeconds: 1
+            timeoutSeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 1
+            timeoutSeconds: 15
+            periodSeconds: 5
+          env:
+            - name: AzureOpenAISettings__Endpoint
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_ENDPOINT
+            - name: AzureOpenAISettings__Key
+              valueFrom:
+                secretKeyRef:
+                  name: eshop-secrets
+                  key: AOAI_KEY
+            - name: AzureOpenAISettings__ChatCompletionModel__Alias
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_CHATCOMPLETION_MODEL_ALIAS
+            - name: AzureOpenAISettings__ChatCompletionModel__DeploymentName
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_CHATCOMPLETION_MODEL_DEPLOYMENT
+            - name: AzureOpenAISettings__EmbeddingGenerationModel__Alias
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_EMBEDDING_MODEL_ALIAS
+            - name: AzureOpenAISettings__EmbeddingGenerationModel__DeploymentName
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_EMBEDDING_MODEL_DEPLOYMENT
+            - name: AzureOpenAISettings__TextCompletionModel__Alias
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_TEXTCOMPLETION_MODEL_ALIAS
+            - name: AzureOpenAISettings__TextCompletionModel__DeploymentName
+              valueFrom:
+                configMapKeyRef:
+                  name: eshop-configs
+                  key: AOAI_TEXTCOMPLETION_MODEL_DEPLOYMENT
+          resources:
+            requests:
+              cpu: 5m
+              memory: 128Mi
+            limits:
+              cpu: 10m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatapi
+spec:
+  selector:
+    app: chatapi
+  ports:
+    - protocol: TCP
+      port: 80
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: chatapi
+spec:
+  host: chatapi
+  subsets:
+    - name: version-1.1
+      labels:
+        version: v1.1
+    - name: version-1.0
+      labels:
+        version: v1.0
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: chatapi
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - eshop-ingressgateway-external
+  http:
+    - match:
+        - uri:
+            prefix: /chat
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: chatapi
+            subset: version-1.1
+          weight: 50
+        - destination:
+            host: chatapi
+            subset: version-1.0
+          weight: 50
