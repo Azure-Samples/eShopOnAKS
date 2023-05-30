@@ -1,9 +1,13 @@
 resources:
   - istio-gateway.yaml
   - web.yaml
+  - chatapi.yaml
 
 # Change the image name and version
 images:
+  - name: chatapi
+    newName: chatapi
+    newTag: v1.0
   - name: web
     newName: web
     newTag: v1.0
