@@ -169,7 +169,7 @@ resource "azurerm_cognitive_deployment" "aoai_ada" {
   model {
     format  = "OpenAI"
     name    = local.embedding_generation_model_deploymentname
-    version = "1"
+    version = "2"
   }
 
   scale {
